@@ -12,6 +12,7 @@ import javax.swing.JFrame;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import java.util.HashMap;
 
 
 public class MainContent extends JPanel {
@@ -54,7 +55,9 @@ public class MainContent extends JPanel {
 
     private boolean isButtonPressed;
 
-    private ArrayList<String> ipList = new ArrayList<>();
+    private HashMap<String, ArrayList<String>> countryByIp;
+
+    private ArrayList<String> ips;
 
 
     public String getInputText() {
@@ -65,11 +68,26 @@ public class MainContent extends JPanel {
         return ipText;
     }
 
+    private void populateHashMap(String ip, String country) {
+        if(this.countryByIp.containsKey(country)){
+            ArrayList<String> updatedList = this.countryByIp.get(country);
+            updatedList.add(ip);
+            this.countryByIp.put(country, updatedList);
+        }
+        else {
+            ArrayList<String> newIpList = new ArrayList<>();
+            newIpList.add(ip);
+            this.countryByIp.put(country, newIpList);
+        }
+
+    }
+
     public void webScrapper() {
         Pattern NUMBERS_WITH_DOTS = Pattern.compile("^([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
                                                     "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
                                                     "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
                                                     "([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
+
         String[] blackList = {"https://www.nirsoft.net/countryip///www.nirsoft.net", "https://www.nirsoft.net/countryip///blog.nirsoft.net",
                                 "https://www.nirsoft.net/countryip//search_freeware.html", "https://www.nirsoft.net/countryip//faq.html",
                             "https://www.nirsoft.net/countryip//top_utilities_downloads.html", "https://www.nirsoft.net/countryip//pad",
@@ -119,7 +137,7 @@ public class MainContent extends JPanel {
                     Element outer_table = redirectDoc.selectFirst("table");
                     Element outer_tbody = outer_table.selectFirst("tbody");
                     for (Element ip_tr : outer_tbody.select("tr")) {
-                        System.out.println(ip_tr.attr("class"));
+
                         if(ip_tr.attr("class").equals("iptableheader")) {
                             continue;
                         }
@@ -128,12 +146,21 @@ public class MainContent extends JPanel {
                             Element secondIp = ip_tr.select("td").get(1);
                             Matcher matcherFirst = NUMBERS_WITH_DOTS.matcher(firstIp.text());
                             Matcher matcherSecond = NUMBERS_WITH_DOTS.matcher(secondIp.text());
-                            if(matcherFirst.find() && matcherSecond.find()) {
-                                if(this.isButtonPressed) {
-                                    String[] ipRange = {firstIp.text(), secondIp.text()};
-                                    checkIp(this.ipText, ipRange, currentCountry);
-                                }
-                            } 
+                            if(matcherFirst.find() && matcherSecond.find()){
+                                populateHashMap(firstIp.text(), td.text());
+                                populateHashMap(secondIp.text(), td.text());
+                            }
+
+
+
+                            
+                            if(this.isButtonPressed) {
+                                
+                                checkIp(this.ipText, currentCountry);
+                                
+                            }
+                            
+
                         } catch (Exception e) {
                             //TODO: handle exception
                         }
@@ -162,44 +189,50 @@ public class MainContent extends JPanel {
         }
     }
     
-    private void checkIp(String ipRecieved, String[] ipRange, String currentCountry) {
-        this.isButtonPressed = false;
-        if(ipRange.length != 2) {
-            return;
-        }
-        String[] ipRecievedArray = ipRecieved.split(".");
-        String[] ipRangeFirstArray = ipRange[0].split(".");
-        String[] ipRangeSecondtArray = ipRange[1].split(".");
+    private void checkIp(String ipRecieved, String currentCountry) {
+     
+            
+        for (String key : this.countryByIp.keySet()) {                  
+            ArrayList<String> currentCountryIpList = this.countryByIp.get(key);
+            for(int i = 0; i < currentCountryIpList.size() - 2; i += 2) {
+                this.isButtonPressed = false;
+                String firstIp = currentCountryIpList.get(i);
+                String secondIp = currentCountryIpList.get(i + 1);
 
-        if(ipRecievedArray.length != ipRangeFirstArray.length && ipRecievedArray.length != ipRangeSecondtArray.length) {
-            return;
-        }
-        boolean flag = true;
-        for(int i = 0; i < ipRecievedArray.length; i++) {
-            int ipDigitRecieved = Integer.parseInt(ipRecievedArray[i]);
-            int ipDigitFirstRange = Integer.parseInt(ipRangeFirstArray[i]);
-            int ipDigitSecondRange = Integer.parseInt(ipRangeSecondtArray[i]);
-            if(ipDigitRecieved < ipDigitFirstRange || ipDigitRecieved > ipDigitSecondRange) {
-                flag = false;
-                break;
+                String[] firstIpToArr = firstIp.split("\\.");
+                String[] secondIpToArr = secondIp.split("\\.");
+                String[] recievedtIpToArr = ipRecieved.split("\\.");
+
+                    boolean flag = true;
+                    for(int j = 0; j < recievedtIpToArr.length; j++) {
+                        int ipRecievedToNum = Integer.parseInt(recievedtIpToArr[j]);
+                        int firstIpToNum = Integer.parseInt(firstIpToArr[j]);
+                        int secondIpToNum = Integer.parseInt(secondIpToArr[j]);
+                    
+                        System.out.println(ipRecieved);
+                        System.out.println(key);
+                        if(ipRecievedToNum < firstIpToNum || ipRecievedToNum > secondIpToNum) {
+                            flag = false;
+                            break;
+                        }
+                    }
+                    if(flag) {
+                        this.country.setText(key);
+                    }
             }
-        }
-        if(flag) {
-            this.country.setText(currentCountry);
-        }
 
-        
-
-        
+        }
         
 
     }
     public MainContent(int width, int height) {
+        this.countryByIp = new HashMap<>();
         this.isButtonPressed = false;
         new Thread(() -> {
             webScrapper();
+            
         }).start();
-        
+
 
         this.setBounds(0,0, width, height);
         this.setDoubleBuffered(true);
