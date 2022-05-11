@@ -78,11 +78,13 @@ public class MainContent extends JPanel {
             ArrayList<String> newIpList = new ArrayList<>();
             newIpList.add(ip);
             this.countryByIp.put(country, newIpList);
+            System.out.println(country);
         }
 
     }
 
     public void webScrapper() {
+        
         Pattern NUMBERS_WITH_DOTS = Pattern.compile("^([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
                                                     "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
                                                     "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
@@ -209,8 +211,6 @@ public class MainContent extends JPanel {
                         int firstIpToNum = Integer.parseInt(firstIpToArr[j]);
                         int secondIpToNum = Integer.parseInt(secondIpToArr[j]);
                     
-                        System.out.println(ipRecieved);
-                        System.out.println(key);
                         if(ipRecievedToNum < firstIpToNum || ipRecievedToNum > secondIpToNum) {
                             flag = false;
                             break;
@@ -233,7 +233,7 @@ public class MainContent extends JPanel {
             
         }).start();
 
-
+        
         this.setBounds(0,0, width, height);
         this.setDoubleBuffered(true);
         this.setBackground(Color.GRAY);
