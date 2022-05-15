@@ -5,9 +5,7 @@ import org.jsoup.select.Elements;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.ArrayList;
-import java.util.LinkedList;
 
-import javax.print.Doc;
 import javax.swing.JFrame;
 
 import org.jsoup.Jsoup;
@@ -22,6 +20,8 @@ public class MainContent extends JPanel {
     private JButton search;
     private JLabel country;
     private String ipText;
+
+    private static final int AMOUNT_OF_COUNTRIES = 214; 
 
     public static final int TITLE_X = 250;
     public static final int TITLE_Y = 20;
@@ -47,18 +47,15 @@ public class MainContent extends JPanel {
     public static final int SEARCH_HEIGHT = 50;
 
     
-    public static final int COUNTRY_X = 440;
+    public static final int COUNTRY_X = 300;
     public static final int COUNTRY_Y = 550;
-    public static final int COUNTRY_WIDTH = 300;
-    public static final int COUNTRY_HEIGHT = 50;
+    public static final int COUNTRY_WIDTH = 500;
+    public static final int COUNTRY_HEIGHT = 100;
     public static final int COUNTRY_FONTSIZE = 50;
 
     private boolean isButtonPressed;
 
     private HashMap<String, ArrayList<String>> countryByIp;
-
-    private ArrayList<String> ips;
-
 
     public String getInputText() {
         return input.getText();
@@ -78,7 +75,6 @@ public class MainContent extends JPanel {
             ArrayList<String> newIpList = new ArrayList<>();
             newIpList.add(ip);
             this.countryByIp.put(country, newIpList);
-            System.out.println(country);
         }
 
     }
@@ -89,7 +85,8 @@ public class MainContent extends JPanel {
                                                     "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
                                                     "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
                                                     "([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
-
+        //blacklist of urls im getting, i couldnt see where im getting those, probably hidden in the html page and not removen
+        //so if the url im getting is one of those then im ignoring
         String[] blackList = {"https://www.nirsoft.net/countryip///www.nirsoft.net", "https://www.nirsoft.net/countryip///blog.nirsoft.net",
                                 "https://www.nirsoft.net/countryip//search_freeware.html", "https://www.nirsoft.net/countryip//faq.html",
                             "https://www.nirsoft.net/countryip//top_utilities_downloads.html", "https://www.nirsoft.net/countryip//pad",
@@ -102,19 +99,11 @@ public class MainContent extends JPanel {
                             "https://www.nirsoft.net/countryip//alpha", "https://www.nirsoft.net/countryip//articles", "https://www.nirsoft.net/countryip/"};
         final String url = "https://www.nirsoft.net/countryip/";
         try {
-           final Document document = Jsoup.connect(url).get();
+           final Document document = Jsoup.connect(url).get(); //first page with country names
            Element pageTBody = document.select("table tbody").get(0);
-
-           //Document redirectDoc = Jsoup.connect("https://www.nirsoft.net/countryip/dz.html").get();
-           //Element outer_table = redirectDoc.selectFirst("table");
-           //Element outer_tbody = outer_table.selectFirst("tbody");
-           
-
-           
 
            for (Element tr : pageTBody.select("tr")) {
                for (Element td : tr.select("td")) {
-                   String currentCountry = td.text();
                    String redirectLink = "https://www.nirsoft.net/countryip/";
                    
                    if(td.select("a").first() != null) {
@@ -135,7 +124,7 @@ public class MainContent extends JPanel {
                    }
                    
                    try {
-                    Document redirectDoc = Jsoup.connect(redirectLink).get();
+                    Document redirectDoc = Jsoup.connect(redirectLink).get(); //page with the ip table of specific country
                     Element outer_table = redirectDoc.selectFirst("table");
                     Element outer_tbody = outer_table.selectFirst("tbody");
                     for (Element ip_tr : outer_tbody.select("tr")) {
@@ -144,9 +133,9 @@ public class MainContent extends JPanel {
                             continue;
                         }
                         try {
-                            Element firstIp = ip_tr.select("td").get(0);
-                            Element secondIp = ip_tr.select("td").get(1);
-                            Matcher matcherFirst = NUMBERS_WITH_DOTS.matcher(firstIp.text());
+                            Element firstIp = ip_tr.select("td").get(0); //starting ip
+                            Element secondIp = ip_tr.select("td").get(1); //ending ip
+                            Matcher matcherFirst = NUMBERS_WITH_DOTS.matcher(firstIp.text()); //regex to check if given value is an actual ip
                             Matcher matcherSecond = NUMBERS_WITH_DOTS.matcher(secondIp.text());
                             if(matcherFirst.find() && matcherSecond.find()){
                                 populateHashMap(firstIp.text(), td.text());
@@ -155,30 +144,24 @@ public class MainContent extends JPanel {
 
 
 
-                            
-                            if(this.isButtonPressed) {
-                                
-                                checkIp(this.ipText, currentCountry);
-                                
+                            if(this.countryByIp.size() >=  AMOUNT_OF_COUNTRIES){
+                                if(this.isButtonPressed) {
+                                    checkIp(this.ipText);
+                                }
                             }
-                            
+                            else {
+                                double onePercent = AMOUNT_OF_COUNTRIES / 100; //calculating the percanteges for the loading
+                                double perecentage = this.countryByIp.size() / onePercent;
+                                this.country.setText(String.valueOf("Loading: " + perecentage + "%"));
+                                if(perecentage >= 99) {
+                                    this.country.setText("");
+                                }
+                            }
 
                         } catch (Exception e) {
-                            //TODO: handle exception
+
                         }
 
-                        /*for (Element ip_td : ip_tr.select("td")) {
-                            Matcher matcher = NUMBERS_WITH_DOTS.matcher(ip_td.text()); 
-                            if(matcher.find()){
-                                //for (String ip : this.ipList) {
-                                //    if(ip_td.text().equals(ip)) {
-                                //        continue;
-                                //    }
-                                //}
-                                //this.ipList.add(ip_td.text());
-                                checkIp("58.147.128.0", ip_td.text());
-                            }
-                        }*/
                     }
                    } catch (Exception e) {
                    }
@@ -191,21 +174,23 @@ public class MainContent extends JPanel {
         }
     }
     
-    private void checkIp(String ipRecieved, String currentCountry) {
+    private void checkIp(String ipRecieved) {
      
-            
+        boolean isCountryFound = false;
         for (String key : this.countryByIp.keySet()) {                  
             ArrayList<String> currentCountryIpList = this.countryByIp.get(key);
-            for(int i = 0; i < currentCountryIpList.size() - 2; i += 2) {
+            for(int i = 0; i < currentCountryIpList.size() - 2; i += 2) { //when scrapping im adding all the ip's into one array but i have to take 
+                                                                          //them in pairs one for the start and one for the end
+                                                                                                         
                 this.isButtonPressed = false;
-                String firstIp = currentCountryIpList.get(i);
+                String firstIp = currentCountryIpList.get(i); 
                 String secondIp = currentCountryIpList.get(i + 1);
 
-                String[] firstIpToArr = firstIp.split("\\.");
+                String[] firstIpToArr = firstIp.split("\\."); //removing the dots for comparing
                 String[] secondIpToArr = secondIp.split("\\.");
                 String[] recievedtIpToArr = ipRecieved.split("\\.");
 
-                    boolean flag = true;
+                    boolean flag = true; //if contradiction not found then showing the country to the user i.e country found
                     for(int j = 0; j < recievedtIpToArr.length; j++) {
                         int ipRecievedToNum = Integer.parseInt(recievedtIpToArr[j]);
                         int firstIpToNum = Integer.parseInt(firstIpToArr[j]);
@@ -218,9 +203,13 @@ public class MainContent extends JPanel {
                     }
                     if(flag) {
                         this.country.setText(key);
+                        isCountryFound = true;
                     }
             }
 
+        }
+        if(!isCountryFound) {
+            this.country.setText("Error: not found");
         }
         
 
@@ -228,19 +217,20 @@ public class MainContent extends JPanel {
     public MainContent(int width, int height) {
         this.countryByIp = new HashMap<>();
         this.isButtonPressed = false;
-        new Thread(() -> {
+        new Thread(() -> { //seperating the scrapping and display into different threads
             webScrapper();
             
         }).start();
 
-        
+        //main window appearence
+
         this.setBounds(0,0, width, height);
         this.setDoubleBuffered(true);
         this.setBackground(Color.GRAY);
         this.setLayout(null);
 
 
-        this.country = new JLabel("ASDAS");
+        this.country = new JLabel("");
         this.country.setBounds(COUNTRY_X, COUNTRY_Y, COUNTRY_WIDTH, COUNTRY_HEIGHT);
         Font countyFont = new Font("country_font", Font.ITALIC, COUNTRY_FONTSIZE);
         this.country.setFont(countyFont);
